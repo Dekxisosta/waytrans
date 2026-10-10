@@ -20,12 +20,14 @@ Traditional Linux OCR translation scripts typically dump translated text into a 
 
 ## ✨ Features
 
+- 🔄 **Dynamic Live Translation (Toggle Mode)**: Simply toggle it on; it continuously watches dialogue boxes or manga panels, detects new incoming text via perceptual hashing, and dynamically updates the translation in-place!
+- 🖱️ **Click-Through in Live Mode**: Allows full mouse pass-through during live mode so you can click to advance dialogue or play games without interruption.
 - 🎯 **In-Place Floating Overlay**: Anchored directly to the `(X, Y)` screen coordinates where the original text was selected.
 - 🖥️ **Multi-Monitor Aware**: Automatically resolves global compositor coordinates to the active monitor.
 - 🇯🇵 **Optimized for Japanese & CJK**: Handles both horizontal and vertical text (`jpn+jpn_vert`), removes OCR space insertion artifacts, and supports `tessdata_best` high-accuracy models.
 - ⚡ **Lightweight & Fast**: Uses native desktop Wayland protocols (`slurp`, `grim`, `gtk-layer-shell`) with zero heavyweight electron/web runtimes.
 - 📋 **Automatic Clipboard Sync**: Translated text is automatically copied via `wl-copy`.
-- ⌨️ **Interactive Dismissal**: Click anywhere on the overlay card or press `Esc` / `Space` to close it immediately.
+- ⌨️ **Interactive Dismissal**: Click anywhere on the snippet overlay or press `Esc` / `Space` to close it immediately.
 - 🔔 **Graceful Fallback**: If running without Layer-Shell, falls back automatically to standard desktop notifications (`notify-send`).
 - 🛠️ **Built-in Model Installer**: One command (`waytrans --setup-models`) fetches high-accuracy models.
 
@@ -98,13 +100,17 @@ Add a shortcut to your Wayland compositor configuration:
 
 In `~/.config/hypr/hyprland.conf`:
 ```ini
-# Translate Japanese to English with Super + Alt + J
+# One-shot screen translation (Super + Alt + J)
 bind = SUPER_ALT, J, exec, waytrans -s ja -t en
+
+# Dynamic Live Translation toggle (Super + Alt + L)
+bind = SUPER_ALT, L, exec, waytrans --live -s ja -t en
 ```
 
 Or if you use Hyprland Lua configurations (`~/.config/hypr/custom/keybinds.lua`):
 ```lua
 hl.bind("SUPER + ALT + J", hl.dsp.exec_cmd("waytrans -s ja -t en"), { description = "Translate screen JP to EN" })
+hl.bind("SUPER + ALT + L", hl.dsp.exec_cmd("waytrans --live -s ja -t en"), { description = "Toggle Live Translation" })
 ```
 
 ### Sway
@@ -112,6 +118,7 @@ hl.bind("SUPER + ALT + J", hl.dsp.exec_cmd("waytrans -s ja -t en"), { descriptio
 In `~/.config/sway/config`:
 ```ini
 bindsym $mod+Mod1+j exec waytrans -s ja -t en
+bindsym $mod+Mod1+l exec waytrans --live -s ja -t en
 ```
 
 ### River
@@ -119,6 +126,7 @@ bindsym $mod+Mod1+j exec waytrans -s ja -t en
 In `~/.config/river/init`:
 ```bash
 riverctl map normal Super+Alt J spawn "waytrans -s ja -t en"
+riverctl map normal Super+Alt L spawn "waytrans --live -s ja -t en"
 ```
 
 ---
@@ -127,8 +135,8 @@ riverctl map normal Super+Alt J spawn "waytrans -s ja -t en"
 
 ```text
 usage: waytrans [-h] [-s SOURCE] [-t TARGET] [--timeout TIMEOUT] [--psm PSM]
-                [--no-overlay] [--no-clipboard] [--notify] [--setup-models]
-                [-v]
+                [--no-overlay] [--no-clipboard] [--notify] [-l]
+                [--interval INTERVAL] [--stop-live] [--setup-models] [-v]
 
 options:
   -h, --help           Show help message and exit
@@ -139,20 +147,28 @@ options:
   --no-overlay         Disable in-place overlay (desktop notification only)
   --no-clipboard       Disable copying translation to clipboard
   --notify             Trigger a desktop notification alongside the overlay
+  -l, --live           Toggle dynamic live translation mode on or off
+  --interval INTERVAL  Polling interval in seconds for live translation (default: 0.5)
+  --stop-live          Stop any currently running live translation session
   --setup-models       Download high-accuracy Japanese OCR models
   -v, --version        Show version
 ```
 
 ### Examples
 
-Translate Japanese to English (default):
+**One-shot translation:**
 ```bash
 waytrans
 ```
 
-Translate Chinese (Simplified) to English:
+**Toggle Live / Dynamic translation on/off:**
 ```bash
-waytrans -s zh -t en
+waytrans -l
+```
+
+Translate Chinese (Simplified) to English in live mode:
+```bash
+waytrans -l -s zh -t en
 ```
 
 Translate German to English with a 20-second timeout:

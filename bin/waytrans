@@ -2,10 +2,13 @@
 import os
 import sys
 
-# Ensure repository root is in sys.path
-sys_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if sys_path not in sys.path:
-    sys.path.insert(0, sys_path)
+script_dir = os.path.dirname(os.path.abspath(__file__))
+repo_root = os.path.dirname(script_dir)
+lib_dir = os.path.join(os.path.dirname(script_dir), "lib", "waytrans")
+
+for path in (repo_root, lib_dir):
+    if os.path.exists(os.path.join(path, "waytrans")) and path not in sys.path:
+        sys.path.insert(0, path)
 
 from waytrans.cli import main
 
