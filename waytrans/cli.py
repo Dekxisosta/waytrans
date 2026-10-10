@@ -13,6 +13,7 @@ from waytrans.capture import capture_region, CaptureError
 from waytrans.ocr import run_ocr, setup_japanese_models, OCRError
 from waytrans.translator import translate_text, TranslationError
 from waytrans.overlay import display_overlay, notify_fallback, has_layer_shell_support
+from waytrans.live import toggle_live, stop_live
 
 
 def copy_to_clipboard(text: str) -> bool:
@@ -70,6 +71,22 @@ def main() -> None:
         help="Send a desktop notification in addition to the on-screen overlay."
     )
     parser.add_argument(
+        "-l", "--live",
+        action="store_true",
+        help="Toggle dynamic live translation mode on or off."
+    )
+    parser.add_argument(
+        "--interval",
+        type=float,
+        default=0.5,
+        help="Polling interval in seconds for live translation (default: 0.5)."
+    )
+    parser.add_argument(
+        "--stop-live",
+        action="store_true",
+        help="Stop any currently running live translation session."
+    )
+    parser.add_argument(
         "--setup-models",
         action="store_true",
         help="Download high-accuracy Japanese OCR models into ~/.local/share/tessdata."
@@ -81,6 +98,25 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+
+    # Handle stop live
+    if args.stop_live:
+        if stop_live():
+            print("Live translation stopped.")
+        else:
+            print("No active live translation session found.")
+        sys.exit(0)
+
+    # Handle live toggle
+    if args.live:
+        toggle_live(
+            source_lang=args.source,
+            target_lang=args.target,
+            interval=args.interval,
+            psm=args.psm,
+            copy_clipboard=not args.no_clipboard
+        )
+        sys.exit(0)
 
     # Handle model installation helper
     if args.setup_models:
