@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import os
+import sys
+
+# Ensure repository root is in sys.path
+sys_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if sys_path not in sys.path:
+    sys.path.insert(0, sys_path)
+
+from waytrans.cli import main
+
+if __name__ == "__main__":
+    main()
