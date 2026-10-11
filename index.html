@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>waytrans — in-place screen translator for Wayland</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+:root{--bg:#fff;--ink:#0b1020;--blue:#4f8cff;--blue-d:#2457d6;--blue-l:#bcd4ff;--blue-p:#e6efff;--grid:#e8ecf5;--card:#fff;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b1020;--ink:#f2f5ff;--grid:#151c33;--card:#10172c;--blue-p:#16224a;--blue-l:#27407f}}
+:root[data-theme="dark"]{--bg:#0b1020;--ink:#f2f5ff;--grid:#151c33;--card:#10172c;--blue-p:#16224a;--blue-l:#27407f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Space Grotesk',system-ui,sans-serif;font-weight:500;
+background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:40px 40px;overflow-x:hidden}
+a{color:inherit}
+.mono{font-family:'Space Mono',ui-monospace,monospace}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px}
+.bx{border:2.5px solid var(--ink);box-shadow:4px 4px 0 var(--ink);border-radius:10px;background:var(--card)}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:10px 16px;font:700 15px 'Space Grotesk',sans-serif;text-decoration:none;cursor:pointer;color:var(--ink);background:var(--card);border:2.5px solid var(--ink);box-shadow:3px 3px 0 var(--ink);border-radius:10px;transition:transform .08s,box-shadow .08s}
+.btn:hover{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn.pri{background:var(--blue);color:#fff}
+header{background:var(--bg);border-bottom:2.5px solid var(--ink);position:sticky;top:env(safe-area-inset-top,0px);z-index:9}
+header .wrap{display:flex;align-items:center;gap:18px;height:64px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:26px;letter-spacing:-.02em;text-decoration:none}
+.logo i{width:30px;height:30px;border-radius:8px;background:var(--blue);border:2.5px solid var(--ink);display:grid;place-items:center;font:700 15px 'Space Mono',monospace;font-style:normal;color:#fff}
+nav{margin-left:auto;display:flex;gap:22px;align-items:center}
+nav a.t{font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:13px;text-decoration:none}
+nav a.t:hover{color:var(--blue-d)}
+.hero{text-align:center;padding:56px 0 20px}
+.hero small{letter-spacing:.3em;font-size:12px;opacity:.65}
+h1{font-size:clamp(34px,7vw,84px);line-height:1.05;margin:14px 0 0;font-weight:700;letter-spacing:-.02em;text-transform:uppercase}
+h1 em{font-style:normal;color:var(--blue)}
+.sub{max-width:640px;margin:18px auto 0;font-size:18px;line-height:1.5}
+.stage{display:grid;grid-template-columns:1.35fr 1fr;gap:36px;align-items:center;margin:44px 0 70px}
+@media(max-width:860px){.stage{grid-template-columns:1fr}}
+/* fake screen */
+.screen{position:relative;overflow:hidden;padding:0;background:#1a2240}
+.bar{display:flex;gap:7px;padding:10px 12px;background:var(--blue-p);border-bottom:2.5px solid var(--ink)}
+.bar b{width:12px;height:12px;border-radius:50%;border:2px solid var(--ink);background:var(--card)}
+.bar b:first-child{background:var(--blue)}
+.vn{aspect-ratio:16/10;position:relative;background:linear-gradient(160deg,#3a5bd9 0%,#8fb3ff 55%,#f7d9e4 100%);display:flex;align-items:flex-end;justify-content:center;padding:18px}
+.vn .sun{position:absolute;top:14%;right:12%;width:70px;height:70px;border-radius:50%;background:#fff6c9;border:2.5px solid var(--ink)}
+.vn .hill{position:absolute;left:-5%;right:-5%;bottom:0;height:42%;background:#16224a;clip-path:polygon(0 60%,25% 20%,55% 55%,80% 10%,100% 50%,100% 100%,0 100%)}
+.dlg{position:relative;width:92%;padding:16px 18px;background:rgba(11,16,32,.88);color:#fff;border:2.5px solid #fff;border-radius:10px;min-height:92px;font-size:clamp(16px,2.4vw,24px);line-height:1.5}
+.sel{position:absolute;inset:-6px;border:2px dashed var(--blue-l);border-radius:12px;pointer-events:none}
+.jp,.en{position:absolute;inset:0;padding:16px 18px;display:flex;align-items:center;transition:opacity .35s}
+.en{background:var(--blue);color:#fff;border-radius:7px;font-weight:700;opacity:0}
+.dlg.t .en{opacity:1}.dlg.t .jp{opacity:0}
+.hint{position:absolute;top:12px;left:12px;background:var(--card);color:var(--ink);padding:6px 10px;border:2.5px solid var(--ink);border-radius:8px;font:700 12px 'Space Mono',monospace;box-shadow:3px 3px 0 var(--ink)}
+/* panel */
+.panel{padding:26px 22px 22px;position:relative;background:var(--blue)}
+.panel .tag{position:absolute;top:-17px;left:50%;transform:translateX(-50%);padding:5px 22px;background:var(--card);color:var(--ink);border:2.5px solid var(--ink);border-radius:10px;font:700 14px 'Space Mono',monospace;letter-spacing:.14em}
+.panel p{margin:0 0 12px;color:#fff;font-size:14px}
+.cmd{display:flex;align-items:stretch;margin-bottom:12px;border:2.5px solid var(--ink);border-radius:10px;background:var(--card);box-shadow:3px 3px 0 var(--ink);overflow:hidden}
+.cmd code{flex:1;padding:11px 12px;font:400 13px 'Space Mono',monospace;overflow-x:auto;white-space:nowrap;scrollbar-width:none}
+.cmd button{border:0;border-left:2.5px solid var(--ink);background:var(--blue-p);color:var(--ink);font:700 12px 'Space Mono',monospace;padding:0 14px;cursor:pointer}
+.cmd button:hover{background:var(--blue-l)}
+.panel .row{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+section{padding:54px 0}
+h2{font-size:clamp(28px,4.4vw,48px);margin:0 0 28px;letter-spacing:-.02em;text-transform:uppercase}
+.flow{display:flex;flex-wrap:wrap;gap:14px;align-items:stretch}
+.step{flex:1 1 150px;padding:16px;position:relative}
+.step h3{margin:0 0 6px;font:700 17px 'Space Mono',monospace}
+.step p{margin:0;font-size:14px;line-height:1.45}
+.step.hl{background:var(--blue);color:#fff}
+.feat{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+@media(max-width:900px){.feat{grid-template-columns:1fr 1fr}}@media(max-width:600px){.feat{grid-template-columns:1fr}}
+.feat .bx{padding:20px}
+.feat h3{margin:0 0 8px;font-size:19px}
+.feat p{margin:0;font-size:15px;line-height:1.5}
+.feat .bx:nth-child(3n+1){background:var(--blue-p)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+@media(max-width:860px){.two{grid-template-columns:1fr}}
+.tabs{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.tabs button{font:700 14px 'Space Grotesk',sans-serif;padding:8px 16px;border:2.5px solid var(--ink);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;box-shadow:3px 3px 0 var(--ink)}
+.tabs button[aria-selected=true]{background:var(--blue);color:#fff}
+pre{margin:0;padding:16px;overflow-x:auto;font:400 13px/1.7 'Space Mono',monospace;background:var(--card)}
+.pre-wrap{padding:0;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:9px 14px;border-bottom:2px solid var(--ink);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td:first-child{font:700 13px 'Space Mono',monospace;white-space:nowrap;background:var(--blue-p)}
+.cta{text-align:center;padding:40px 20px;background:var(--blue);color:#fff}
+.cta h2{margin-bottom:18px}
+footer{border-top:2.5px solid var(--ink);background:var(--bg);padding:24px 0;font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <a class="logo" href="#top"><i>文A</i>waytrans</a>
+  <nav>
+    <a class="t" href="#install">Install</a><a class="t" href="#how">How</a><a class="t" href="#keys">Docs</a>
+    <a class="btn pri" href="https://github.com/remsysc/waytrans" target="_blank" rel="noopener">★ GitHub</a>
+  </nav>
+</div></header>
+
+<main id="top" class="wrap">
+  <div class="hero">
+    <small class="mono">WAYLAND · LAYER-SHELL · MIT</small>
+    <h1>Waytrans translates<br>right <em>on your screen</em></h1>
+    <p class="sub">Snip any foreign text and the translation appears directly over the original words. No notification toasts, no looking away.</p>
+  </div>
+
+  <div class="stage">
+    <div class="bx screen">
+      <div class="bar"><b></b><b></b><b></b></div>
+      <div class="vn">
+        <div class="sun"></div><div class="hill"></div>
+        <div class="hint" id="hint">click the text box</div>
+        <div class="dlg" id="dlg" role="button" tabindex="0" aria-label="Toggle translation demo">
+          <div class="sel"></div>
+          <div class="jp">今日はいい天気ですね。一緒に行きましょう。</div>
+          <div class="en">It's lovely weather today. Let's go together.</div>
+          <span style="visibility:hidden">今日はいい天気ですね。一緒に行きましょう。</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bx panel" id="install">
+      <span class="tag">INSTALL</span>
+      <p>Clone, run the installer, then fetch the Japanese models.</p>
+      <div class="cmd"><code>git clone https://github.com/remsysc/waytrans.git</code><button data-c="git clone https://github.com/remsysc/waytrans.git">COPY</button></div>
+      <div class="cmd"><code>cd waytrans &amp;&amp; ./install.sh</code><button data-c="cd waytrans && ./install.sh">COPY</button></div>
+      <div class="cmd"><code>waytrans --setup-models</code><button data-c="waytrans --setup-models">COPY</button></div>
+      <p style="margin-top:4px">Or with pip: <span class="mono">pip install --user .</span></p>
+      <div class="row">
+        <a class="btn" href="https://github.com/remsysc/waytrans" target="_blank" rel="noopener">View on GitHub</a>
+        <a class="btn" href="#keys">Keybindings</a>
+      </div>
+    </div>
+  </div>
+
+  <section id="how">
+    <h2>Drag. Read. Dismiss.</h2>
+    <div class="flow">
+      <div class="bx step"><h3>slurp</h3><p>Drag a box around the text.</p></div>
+      <div class="bx step"><h3>grim</h3><p>Captures just that region.</p></div>
+      <div class="bx step"><h3>ImageMagick</h3><p>Optional 2x upscale and grayscale.</p></div>
+      <div class="bx step"><h3>Tesseract</h3><p>OCR with horizontal and vertical CJK.</p></div>
+      <div class="bx step"><h3>translate-shell</h3><p>Translates the extracted text.</p></div>
+      <div class="bx step hl"><h3>Overlay</h3><p>Drawn over the original via GtkLayerShell. Also copied with wl-copy.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Built for immersion</h2>
+    <div class="feat">
+      <div class="bx"><h3>Live translation</h3><p>Toggle it on and waytrans watches a dialogue box or manga panel, spots new text by perceptual hashing, and updates in place.</p></div>
+      <div class="bx"><h3>Click-through</h3><p>In live mode the overlay passes mouse input through, so you keep clicking to advance dialogue.</p></div>
+      <div class="bx"><h3>In-place overlay</h3><p>Anchored to the exact screen coordinates you selected, multi-monitor aware.</p></div>
+      <div class="bx"><h3>Japanese and CJK</h3><p>Handles <span class="mono">jpn+jpn_vert</span>, strips OCR spacing artifacts, and supports tessdata_best models.</p></div>
+      <div class="bx"><h3>Lightweight</h3><p>Native Wayland tools. No Electron, no web runtime.</p></div>
+      <div class="bx"><h3>Graceful fallback</h3><p>Without Layer-Shell it falls back to <span class="mono">notify-send</span>. Click or press Esc to dismiss.</p></div>
+    </div>
+  </section>
+
+  <section id="keys">
+    <h2>Bind it. Use it.</h2>
+    <div class="two">
+      <div>
+        <div class="tabs" role="tablist">
+          <button role="tab" aria-selected="true" data-t="hypr">Hyprland</button>
+          <button role="tab" aria-selected="false" data-t="sway">Sway</button>
+          <button role="tab" aria-selected="false" data-t="river">River</button>
+        </div>
+        <div class="bx pre-wrap"><pre id="code"></pre></div>
+      </div>
+      <div>
+        <div class="tabs"><span class="btn" style="cursor:default;box-shadow:3px 3px 0 var(--ink)">CLI flags</span></div>
+        <div class="bx" style="overflow:hidden"><table>
+          <tr><td>-s / -t</td><td>Source and target language (default ja → en)</td></tr>
+          <tr><td>-l, --live</td><td>Toggle live translation</td></tr>
+          <tr><td>--timeout</td><td>Overlay seconds, 0 stays until clicked</td></tr>
+          <tr><td>--psm</td><td>Tesseract segmentation mode</td></tr>
+          <tr><td>--no-overlay</td><td>Notification only</td></tr>
+          <tr><td>--no-clipboard</td><td>Skip wl-copy</td></tr>
+          <tr><td>--setup-models</td><td>Download JP OCR models</td></tr>
+        </table></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="bx cta">
+      <h2>Read it in your language</h2>
+      <a class="btn" href="https://github.com/remsysc/waytrans" target="_blank" rel="noopener">Get waytrans on GitHub →</a>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap">
+  <span>waytrans · MIT License · © 2026 Rem</span>
+  <span class="mono">needs: grim · slurp · tesseract · translate-shell · wl-clipboard · gtk-layer-shell</span>
+</div></footer>
+
+<script>
+const dlg=document.getElementById('dlg'),hint=document.getElementById('hint');
+function flip(){dlg.classList.toggle('t');hint.textContent=dlg.classList.contains('t')?'translated · click to dismiss':'click the text box'}
+dlg.addEventListener('click',flip);
+dlg.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '||e.key==='Escape'){e.preventDefault();flip()}});
+document.querySelectorAll('.cmd button').forEach(b=>b.addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(b.dataset.c);b.textContent='COPIED'}catch(e){b.textContent='PRESS CTRL+C'}
+  setTimeout(()=>b.textContent='COPY',1400)}));
+const K={
+hypr:'# ~/.config/hypr/hyprland.conf\nbind = SUPER_ALT, J, exec, waytrans -s ja -t en\nbind = SUPER_ALT, L, exec, waytrans --live -s ja -t en',
+sway:'# ~/.config/sway/config\nbindsym $mod+Mod1+j exec waytrans -s ja -t en\nbindsym $mod+Mod1+l exec waytrans --live -s ja -t en',
+river:'# ~/.config/river/init\nriverctl map normal Super+Alt J spawn "waytrans -s ja -t en"\nriverctl map normal Super+Alt L spawn "waytrans --live -s ja -t en"'};
+const code=document.getElementById('code');code.textContent=K.hypr;
+document.querySelectorAll('[data-t]').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('[data-t]').forEach(x=>x.setAttribute('aria-selected',x===b));
+  code.textContent=K[b.dataset.t]}));
+</script>
+</body>
+</html>
